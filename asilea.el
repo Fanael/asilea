@@ -1,4 +1,4 @@
-;;; asilea.el --- -*- lexical-binding: t -*-
+;;; asilea.el --- Find "best" compiler options using simulated annealing -*- lexical-binding: t -*-
 
 ;; Author: Fanael Linithien <fanael4@gmail.com>
 ;; URL: https://github.com/Fanael/asilea
