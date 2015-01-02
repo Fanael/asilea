@@ -122,8 +122,8 @@ RANDOM-FUNCTION), where:
  * OLD-ENERGY is the energy of the currently accepted candidate.
  * TEMPERATURE is the current temperature.
  * RANDOM-FUNCTION is the value of
-   `asilea-random-generator-function' that was in effect when the
-   process begun.
+   `asilea-random-generator-function' that was in effect
+   when the simulated annealing process begun.
 It should return non-nil if the new candidate is to be accepted.")
 
 (defvar asilea-parse-energy-function #'string-to-number
@@ -156,7 +156,7 @@ It's called with two arguments (CANDIDATE ENERGY), where:
 The return value is ignored.")
 
 (defvar asilea-finished-function #'ignore
-  "Function called when the simulate annealing process is finished.
+  "Function called when the simulated annealing process is finished.
 
 It's called with no arguments, its return value is ignored.")
 
@@ -185,9 +185,12 @@ picking one element from each option group.
 The search for the best set of compiler options is done by using
 simulated annealing.
 
-When the process is started, the function returns: programs are
-started asynchronously.
-When the process ends, `asilea-finished-function' is called.
+When the simulated annealing process is started, the
+function returns: programs are started asynchronously; to
+run synchronously, use `asilea-run-synchronously' instead.
+
+When the simulated annealing process process ends,
+`asilea-finished-function' is called.
 
 The search ends when all concurrent jobs have performed
 `asilea-max-steps' steps, or when all concurrent jobs hit a
@@ -295,6 +298,23 @@ probably a better idea to run it in a separate batch Emacs process."
         (set-process-sentinel
          (asilea--start-process program current-state options)
          sentinel)))))
+
+(defun asilea-run-synchronously (program options)
+  "Synchronous version of `asilea-run'.
+It won't return until the simulated annealing process is
+finished.
+
+For more details and the meaning of PROGRAM and OPTIONS,
+see `asilea-run'."
+  (let* ((finished-function asilea-finished-function)
+         (should-wait-p t)
+         (asilea-finished-function
+          (lambda ()
+            (setq should-wait-p nil)
+            (funcall finished-function))))
+    (asilea-run program options)
+    (while should-wait-p
+      (accept-process-output))))
 
 (defun asilea-default-acceptance-function
     (new-energy old-energy temperature random-function)
