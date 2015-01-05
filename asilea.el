@@ -2,7 +2,7 @@
 
 ;; Author: Fanael Linithien <fanael4@gmail.com>
 ;; URL: https://github.com/Fanael/asilea
-;; Package-Version: 0.1
+;; Package-Version: 0.2
 ;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -48,7 +48,7 @@
 ;;        (asilea-finished-function
 ;;         (lambda ()
 ;;           (message "Solution found: %s (score: %s)"
-;;                    (asilea-state-to-option-list (car solution))
+;;                    (car solution)
 ;;                    (cdr solution)))))
 ;;   (asilea-run
 ;;    ;; timing-script is a script that compiles the program, measures
@@ -136,10 +136,9 @@ failed.")
 (defvar asilea-report-candidate-function #'ignore
   "Function called for each and every candidate.
 
-It's called with two arguments (CANDIDATE ENERGY), where:
- * CANDIDATE is the candidate state in an internal format; to
-   convert it to a list of options, use
-   `asilea-state-to-option-list'.
+It's called with two arguments (STATE ENERGY), where:
+ * STATE is the candidate state, i.e. the list of options passed to
+   the external program.
  * ENERGY is the candidate energy, i.e. the result of a
    `asilea-parse-energy-function' call.
 The return value is ignored.")
@@ -148,9 +147,8 @@ The return value is ignored.")
   "Function called when a solution is accepted.
 
 It's called with two arguments (CANDIDATE ENERGY), where:
- * CANDIDATE is the accepted solution state in an internal format;
-   to convert it to a list of options, use
-   `asilea-state-to-option-list'.
+ * STATE is the accepted solution state, i.e. the list of options
+   passed to the external program.
  * ENERGY is the candidate energy, i.e. the result of a
    `asilea-parse-energy-function' call.
 The return value is ignored.")
@@ -251,18 +249,20 @@ probably a better idea to run it in a separate batch Emacs process."
              (consider-candidate
               (lambda (energy)
                 "Consider the candidate `current-state', possibly accepting it."
-                (with-demoted-errors "Error in `asilea-report-candidate-function': %S"
-                  (funcall report-candidate-function current-state energy))
-                (cond
-                 ((null accepted-state-energy)
-                  (setq accepted-state-energy energy))
-                 ((with-demoted-errors "Error in `asilea-acceptance-function': %S"
-                    (funcall acceptance-function
-                             energy accepted-state-energy temperature random-function))
-                  (setq accepted-state current-state)
-                  (setq accepted-state-energy energy)
-                  (with-demoted-errors "Error in `asilea-solution-accepted-function': %S"
-                    (funcall solution-accepted-function current-state energy))))))
+                (let ((option-list
+                       (asilea--state-to-option-list current-state options)))
+                  (with-demoted-errors "Error in `asilea-report-candidate-function': %S"
+                    (funcall report-candidate-function option-list energy))
+                  (cond
+                   ((null accepted-state-energy)
+                    (setq accepted-state-energy energy))
+                   ((with-demoted-errors "Error in `asilea-acceptance-function': %S"
+                      (funcall acceptance-function
+                               energy accepted-state-energy temperature random-function))
+                    (setq accepted-state current-state)
+                    (setq accepted-state-energy energy)
+                    (with-demoted-errors "Error in `asilea-solution-accepted-function': %S"
+                      (funcall solution-accepted-function option-list energy)))))))
              (sentinel nil)
              (steps-left asilea-max-steps))
         (setq
@@ -327,19 +327,6 @@ NEW-ENERGY, OLD-ENERGY, TEMPERATURE and RANDOM-FUNCTION are as in
              temperature))
      (funcall random-function 1.0)))
 
-(defun asilea-state-to-option-list (state options)
-  "Convert the internal state format to an option list.
-
-STATE is the internal state to convert.
-OPTIONS is a vector of options as passed to `asilea-run'."
-  (let ((result '()))
-    (dotimes (i (length state))
-      (let ((option (aref (aref options i) (aref state i))))
-        (if (listp option)
-            (setq result (nconc (reverse option) result))
-          (push option result))))
-    (nreverse result)))
-
 
 ;;; Private functions
 
@@ -359,6 +346,19 @@ guess."
       ;; Try to choose an initial temperature so that the last annealing step
       ;; has a temperature of just around 1.
       (fceiling (expt (/ 1.0 (- 1.0 asilea-cooling-rate)) asilea-max-steps))))
+
+(defun asilea--state-to-option-list (state options)
+  "Convert the internal state format to an option list.
+
+STATE is the internal state to convert.
+OPTIONS is a vector of options as passed to `asilea-run'."
+  (let ((result '()))
+    (dotimes (i (length state))
+      (let ((option (aref (aref options i) (aref state i))))
+        (if (listp option)
+            (setq result (nconc (reverse option) result))
+          (push option result))))
+    (nreverse result)))
 
 (defun asilea--neighboring-state (state options random-function)
   "Generate a state neighboring to STATE.
@@ -388,7 +388,7 @@ PROGRAM is the program to start.
 STATE is the internal state representing options to pass.
 OPTIONS is a vector of options as passed to `asilea-run'."
   (let ((buffer (generate-new-buffer " *asilea process output*"))
-        (option-list (asilea-state-to-option-list state options))
+        (option-list (asilea--state-to-option-list state options))
         (process-connection-type nil))
     (apply #'start-process program buffer program option-list)))
 
