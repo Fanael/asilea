@@ -1,8 +1,8 @@
-;;; asilea.el --- Find "best" compiler options using simulated annealing -*- lexical-binding: t -*-
+;;; asilea.el --- Find best compiler options using simulated annealing -*- lexical-binding: t -*-
 
 ;; Author: Fanael Linithien <fanael4@gmail.com>
 ;; URL: https://github.com/Fanael/asilea
-;; Package-Version: 0.2
+;; Package-Version: 0.2.1
 ;; Package-Requires: ((emacs "24") (cl-lib "0.5"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -34,17 +34,17 @@
 
 ;;; Commentary:
 
-;; Asilea is a library using simulated annealing to try to find "best"
-;; compiler options, where "best" is typically either the fastest executable
-;; or the smallest one, but may be any arbitrary metric.
+;; Asilea is a library using simulated annealing to try to find best compiler
+;; options, where "best" is typically either the fastest executable or the
+;; smallest one, but may be any arbitrary metric.
 ;;
 ;; Typical usage (assuming lexical binding):
 ;;
 ;; (let* ((asilea-max-steps 1000)
 ;;        (solution nil)
 ;;        (asilea-solution-accepted-function
-;;         (lambda (candidate energy)
-;;           (setq solution (cons candidate energy))))
+;;         (lambda (state energy)
+;;           (setq solution (cons state energy))))
 ;;        (asilea-finished-function
 ;;         (lambda ()
 ;;           (message "Solution found: %s (score: %s)"
@@ -146,7 +146,7 @@ The return value is ignored.")
 (defvar asilea-solution-accepted-function #'ignore
   "Function called when a solution is accepted.
 
-It's called with two arguments (CANDIDATE ENERGY), where:
+It's called with two arguments (STATE ENERGY), where:
  * STATE is the accepted solution state, i.e. the list of options
    passed to the external program.
  * ENERGY is the candidate energy, i.e. the result of a
@@ -162,7 +162,7 @@ It's called with no arguments, its return value is ignored.")
 ;;; Public functions
 
 (defun asilea-run (program options)
-  "Try to find the \"best\" compiler options for a given program.
+  "Try to find the best compiler options for a given program.
 \"Best\" here typically means the fastest or the smallest
 executable, but any metric may be used.
 
